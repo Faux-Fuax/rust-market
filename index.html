@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Rust Market - Cyberpunk Adventure</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --neon-cyan: #00f3ff;
+            --neon-pink: #ff00ff;
+            --neon-yellow: #ffff00;
+            --neon-green: #39ff14;
+            --rust-orange: #ff6b35;
+            --dark-bg: #050508;
+            --panel-bg: #1a1a2e;
+            --grid-color: rgba(0, 243, 255, 0.1);
+        }
+        
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background: var(--dark-bg);
+            color: #e0e0e0;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* --- CRT & NOISE EFFECTS --- */
+        .crt::before {
+            content: " "; display: block; position: fixed; top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%; pointer-events: none; z-index: 1000;
+            animation: flicker 0.15s infinite;
+        }
+
+        .noise-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 999; opacity: 0.05;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        @keyframes flicker { 0% { opacity: 0.97; } 50% { opacity: 1; } 100% { opacity: 0.98; } }
+
+        /* --- HEADER & HUD --- */
+        .game-header {
+            background: rgba(0,0,0,0.9); border-bottom: 2px solid var(--neon-cyan);
+            padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.3); position: relative; z-index: 100;
+        }
+        
+        .title {
+            font-family: 'Orbitron', sans-serif; font-size: 1.5rem;
+            background: linear-gradient(45deg, var(--neon-cyan), var(--neon-pink));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 3px;
+        }
+
+        .wallet-display {
+            background: rgba(0, 0, 0, 0.6); border: 1px solid var(--neon-yellow);
+            padding: 0.5rem 1rem; display: flex; gap: 1.5rem; font-size: 0.9rem;
+        }
+
+        /* --- MAIN UI --- */
+        .game-container { max-width: 1100px; margin: 2rem auto; padding: 0 20px; }
+
+        .location-screen {
+            background: rgba(26, 26, 46, 0.8); border: 1px solid var(--neon-cyan);
+            padding: 2rem; border-radius: 4px; position: relative; min-height: 500px;
+            backdrop-filter: blur(10px); box-shadow: 0 0 40px rgba(0, 243, 255, 0.1);
+        }
+
+        /* --- SHOP OVERLAY --- */
+        #shop-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 5, 10, 0.98); display: none; flex-direction: column; padding: 30px;
+            z-index: 150; border: 2px solid var(--neon-yellow);
+        }
+
+        .shop-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--neon-yellow); padding-bottom: 15px; margin-bottom: 20px; }
+        .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .shop-item { background: rgba(255, 255, 0, 0.05); border: 1px solid rgba(255, 255, 0, 0.2); padding: 15px; cursor: pointer; }
+        .shop-item:hover { border-color: var(--neon-yellow); background: rgba(255, 255, 0, 0.1); }
+        .item-name { color: var(--neon-yellow); font-weight: bold; }
+        .item-cost { color: var(--neon-cyan); font-size: 0.8rem; }
+
+        /* --- NPC COMMS --- */
+        .npc-container { display: flex; gap: 2rem; margin-top: 30px; border-top: 1px solid #333; padding-top: 20px; }
+        .npc-video-screen {
+            width: 250px; height: 300px; background: #000; border: 2px solid var(--neon-cyan);
+            position: relative; overflow: hidden; box-shadow: 0 0 15px var(--neon-cyan);
+        }
+
+        .video-content { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 6rem; }
+        
+        .video-status {
+            position: absolute; bottom: 0; width: 100%; background: rgba(0,0,0,0.7);
+            padding: 5px 10px; font-size: 0.7rem; color: var(--neon-cyan); display: flex; justify-content: space-between;
+        }
+
+        .recording-dot { width: 8px; height: 8px; background: red; border-radius: 50%; display: inline-block; animation: blink 1s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        /* --- DIALOGUE & BUTTONS --- */
+        .dialogue-section { flex: 1; }
+        .dialogue-box { background: rgba(0,0,0,0.8); border-left: 4px solid var(--neon-pink); padding: 20px; height: 140px; }
+        .speaker-name { color: var(--neon-pink); font-weight: bold; margin-bottom: 10px; letter-spacing: 2px; }
+        
+        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .btn-action {
+            background: transparent; border: 1px solid var(--neon-cyan); color: var(--neon-cyan);
+            padding: 12px; cursor: pointer; font-family: inherit; font-weight: bold;
+        }
+        .btn-action:hover { background: var(--neon-cyan); color: #000; box-shadow: 0 0 15px var(--neon-cyan); }
+
+        #notifier {
+            position: fixed; bottom: 20px; right: 20px; background: #ff0055; color: white;
+            padding: 10px 20px; display: none; z-index: 2000; font-weight: bold;
+        }
+    </style>
+</head>
+<body class="crt">
+    <div class="noise-overlay"></div>
+    <div id="notifier">ERROR: INSUFFICIENT_RUST</div>
+
+    <header class="game-header">
+        <div class="title">RUST_MARKET.v1</div>
+        <div class="wallet-display">
+            <div class="currency"><span style="color:var(--rust-orange)">RUST:</span> <span id="rust-val">1000</span></div>
+            <div class="currency"><span style="color:var(--neon-green)">SCRP:</span> <span id="scrap-val">12</span></div>
+        </div>
+    </header>
+
+    <div class="game-container">
+        <div class="location-screen">
+            <div id="shop-overlay">
+                <div class="shop-header">
+                    <div style="color:var(--neon-yellow); font-family: 'Orbitron'">ENZO_INVENTORY.exe</div>
+                    <button onclick="closeShop()" style="background:var(--neon-yellow); border:none; padding:5px 10px; cursor:pointer;">EXIT</button>
+                </div>
+                <div class="shop-grid" id="shop-items"></div>
+            </div>
+
+            <h2 id="loc-name" style="color:var(--neon-cyan); font-family:'Orbitron';">LOCATION_NAME</h2>
+            <p id="loc-desc" style="color:#888; font-size:0.9rem; margin-top:5px;">Location description goes here...</p>
+            
+            <div class="npc-container">
+                <div class="npc-video-screen">
+                    <div class="video-content" id="avatar">🦝</div>
+                    <div class="video-status">
+                        <div><span class="recording-dot"></span> LIVE_FEED</div>
+                        <div>SIG_STRENGTH: MAX</div>
+                    </div>
+                </div>
+
+                <div class="dialogue-section">
+                    <div class="dialogue-box">
+                        <div class="speaker-name" id="npc-name">NAME</div>
+                        <div id="dialogue-text">...</div>
+                    </div>
+                    
+                    <div class="action-grid">
+                        <button class="btn-action" onclick="talkToNPC()">TALK (LORE)</button>
+                        <button class="btn-action" id="shop-btn" onclick="openShop()">TRADE (STORE)</button>
+                        <button class="btn-action" onclick="changeNPC('SHADY')">DICE TABLE</button>
+                        <button class="btn-action" onclick="changeNPC('SOUTHPAW')">GATEWAY</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let wallet = 1000;
+        const marketInventory = [
+            { id: 'neon_dice', name: 'NEON GLASS DICE', cost: 500, desc: 'Glows in the dark.' },
+            { id: 'rust_dice', name: 'RUSTY IRON DICE', cost: 50, desc: 'Heavy clatter.' },
+            { id: 'data_drive', name: 'SECTOR 4 DATA DRIVE', cost: 1000, desc: 'Anna\'s location logs.' },
+            { id: 'stim', name: 'ADRENALINE STIM', cost: 150, desc: '+10 Pug Speed.' }
+        ];
+
+        const npcData = {
+            'ENZO': { name: 'ENZO "THE WEASEL"', avatar: '🦝', color: '#ff00ff', loc: 'THE DUST DEPOT', greet: 'keep it down. the Presence is listening. you buying or just wasting my bandwidth?' },
+            'SHADY': { name: 'SHADY', avatar: '🎲', color: '#00f3ff', loc: 'THE ALLEY TABLE', greet: 'The dice don\'t lie, but I might. You feeling lucky, drifter?' },
+            'SOUTHPAW': { name: 'SOUTHPAW', avatar: '🤖', color: '#39ff14', loc: 'THE GATEWAY', greet: 'ID check required. No one passes without an Access Key.' }
+        };
+
+        function changeNPC(id) {
+            const data = npcData[id];
+            document.getElementById('avatar').innerText = data.avatar;
+            document.getElementById('npc-name').innerText = data.name;
+            document.getElementById('npc-name').style.color = data.color;
+            document.getElementById('loc-name').innerText = data.loc;
+            document.getElementById('shop-btn').style.display = (id === 'ENZO') ? 'block' : 'none';
+            typeWriter(data.greet);
+        }
+
+        function typeWriter(text) {
+            let i = 0;
+            const target = document.getElementById('dialogue-text');
+            target.innerHTML = '';
+            function type() {
+                if (i < text.length) { target.innerHTML += text.charAt(i); i++; setTimeout(type, 20); }
+            }
+            type();
+        }
+
+        function openShop() {
+            const grid = document.getElementById('shop-items');
+            grid.innerHTML = '';
+            marketInventory.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'shop-item';
+                el.innerHTML = `<div class="item-name">${item.name}</div><div class="item-cost">${item.cost} RUST</div>`;
+                el.onclick = () => buyItem(item);
+                grid.appendChild(el);
+            });
+            document.getElementById('shop-overlay').style.display = 'flex';
+        }
+
+        function closeShop() { document.getElementById('shop-overlay').style.display = 'none'; }
+
+        function buyItem(item) {
+            if (wallet >= item.cost) {
+                wallet -= item.cost;
+                document.getElementById('rust-val').innerText = wallet;
+                typeWriter(`[TRANS_SUCCESS]: ${item.name} acquired. Tuck it away.`);
+                closeShop();
+            } else {
+                const note = document.getElementById('notifier');
+                note.style.display = 'block';
+                setTimeout(() => note.style.display = 'none', 2000);
+            }
+        }
+
+        function talkToNPC() { typeWriter("Data isn't free. But I can tell you this: Sector 4 is crawling with cleaners tonight."); }
+
+        window.onload = () => changeNPC('ENZO');
+    </script>
+</body>
+</html>
